@@ -1,7 +1,7 @@
 import os
 import logging
+from xml.sax.saxutils import escape
 from flask import Flask, request, Response
-from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
 import database
 
@@ -75,9 +75,7 @@ def webhook():
     reply = handle_command(incoming_msg)
     logger.info('Reply: %r', reply)
 
-    response = MessagingResponse()
-    response.message(reply)
-    twiml = str(response)
+    twiml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{escape(reply)}</Message></Response>'
     logger.info('TwiML: %s', twiml)
 
     return Response(twiml, mimetype='text/xml')
