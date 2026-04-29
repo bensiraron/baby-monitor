@@ -152,6 +152,48 @@ def delete_last_event() -> tuple | None:
     return row['event_type'], _str_to_israel(row['timestamp'])
 
 
+def delete_last_event_by_type(event_type: str) -> datetime | None:
+    conn = _get_conn()
+    row = conn.execute(
+        'SELECT id, timestamp FROM events WHERE event_type = ? ORDER BY timestamp DESC LIMIT 1',
+        (event_type,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return None
+    conn.execute('DELETE FROM events WHERE id = ?', (row['id'],))
+    conn.commit()
+    conn.close()
+    return _str_to_israel(row['timestamp'])
+
+
+def get_dashboard_data() -> dict:
+    since_str = _ts_to_str(_now_utc() - timedelta(hours=24))
+    conn = _get_conn()
+    result = {}
+    for event_type in EVENTS:
+        rows = conn.execute(
+            'SELECT timestamp FROM events WHERE event_type = ? AND timestamp >= ? ORDER BY timestamp ASC',
+            (event_type, since_str)
+        ).fetchall()
+        timestamps = [_str_to_israel(row['timestamp']) for row in rows]
+
+        last_row = conn.execute(
+            'SELECT timestamp FROM events WHERE event_type = ? ORDER BY timestamp DESC LIMIT 1',
+            (event_type,)
+        ).fetchone()
+        last = _str_to_israel(last_row['timestamp']) if last_row else None
+
+        result[event_type] = {
+            'times': [ts.strftime('%H:%M') for ts in timestamps],
+            'count': len(timestamps),
+            'avg_interval': _calc_avg_interval(timestamps),
+            'last': last.strftime('%d/%m %H:%M') if last else None,
+        }
+    conn.close()
+    return result
+
+
 def get_extended_report() -> str:
     today = _now_utc().astimezone(ISRAEL_TZ).date()
     conn = _get_conn()

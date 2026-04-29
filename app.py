@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, jsonify, render_template
 from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
 import database
@@ -69,6 +69,36 @@ def webhook():
     response = MessagingResponse()
     response.message(handle_command(incoming_msg))
     return str(response)
+
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+
+@app.route('/api/data')
+def api_data():
+    return jsonify(database.get_dashboard_data())
+
+
+@app.route('/api/log/<event_type>', methods=['POST'])
+def api_log(event_type):
+    if event_type not in database.EVENTS:
+        return jsonify({'message': 'סוג אירוע לא חוקי'}), 400
+    israel_time = database.log_event(event_type)
+    emoji = database.EMOJIS[event_type]
+    return jsonify({'message': f'✅ {emoji} {event_type} נרשם בשעה {israel_time.strftime("%H:%M")}'})
+
+
+@app.route('/api/delete-last/<event_type>', methods=['POST'])
+def api_delete_last(event_type):
+    if event_type not in database.EVENTS:
+        return jsonify({'message': 'סוג אירוע לא חוקי'}), 400
+    dt = database.delete_last_event_by_type(event_type)
+    if dt is None:
+        return jsonify({'message': f'❌ אין רשומות {event_type} למחיקה'})
+    emoji = database.EMOJIS[event_type]
+    return jsonify({'message': f'🗑️ נמחק {emoji} {event_type} מ-{dt.strftime("%H:%M")}'})
 
 
 if __name__ == '__main__':
