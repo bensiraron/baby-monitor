@@ -1,7 +1,7 @@
 import os
 import logging
-from xml.sax.saxutils import escape
-from flask import Flask, request, Response
+from flask import Flask, request
+from twilio.rest import Client
 from dotenv import load_dotenv
 import database
 
@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 database.init_db()
+
+_twilio = Client(os.environ['TWILIO_ACCOUNT_SID'], os.environ['TWILIO_AUTH_TOKEN'])
+TWILIO_NUMBER = os.environ['TWILIO_PHONE_NUMBER']
 
 REGISTRATION = {
     'הנקה': ('🤱', 'הנקה נרשמה'),
@@ -70,15 +73,16 @@ def handle_command(text: str) -> str:
 @app.route('/webhook', methods=['POST'])
 def webhook():
     incoming_msg = request.form.get('Body', '').strip()
-    logger.info('Incoming message: %r', incoming_msg)
+    sender = request.form.get('From', '')
+    logger.info('Incoming message from %s: %r', sender, incoming_msg)
 
     reply = handle_command(incoming_msg)
     logger.info('Reply: %r', reply)
 
-    twiml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{escape(reply)}</Message></Response>'
-    logger.info('TwiML: %s', twiml)
+    _twilio.messages.create(body=reply, from_=TWILIO_NUMBER, to=sender)
+    logger.info('Message sent to %s', sender)
 
-    return Response(twiml, mimetype='text/xml')
+    return '', 200
 
 
 if __name__ == '__main__':
