@@ -1,12 +1,16 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, abort
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.request_validator import RequestValidator
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import database
 
 load_dotenv()
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+_validator = RequestValidator(os.environ['TWILIO_AUTH_TOKEN'])
 database.init_db()
 
 REGISTRATION = {
@@ -65,6 +69,11 @@ def handle_command(text: str) -> str:
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    url = request.url
+    signature = request.headers.get('X-Twilio-Signature', '')
+    if not _validator.validate(url, request.form, signature):
+        abort(403)
+
     incoming_msg = request.form.get('Body', '').strip()
     response = MessagingResponse()
     response.message(handle_command(incoming_msg))
