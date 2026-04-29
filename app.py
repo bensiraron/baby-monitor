@@ -1,14 +1,17 @@
 import os
-from flask import Flask, request
+import logging
+from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
 import database
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 database.init_db()
-# v2
 
 REGISTRATION = {
     'הנקה': ('🤱', 'הנקה נרשמה'),
@@ -67,9 +70,17 @@ def handle_command(text: str) -> str:
 @app.route('/webhook', methods=['POST'])
 def webhook():
     incoming_msg = request.form.get('Body', '').strip()
+    logger.info('Incoming message: %r', incoming_msg)
+
+    reply = handle_command(incoming_msg)
+    logger.info('Reply: %r', reply)
+
     response = MessagingResponse()
-    response.message(handle_command(incoming_msg))
-    return str(response)
+    response.message(reply)
+    twiml = str(response)
+    logger.info('TwiML: %s', twiml)
+
+    return Response(twiml, mimetype='text/xml')
 
 
 if __name__ == '__main__':
