@@ -1,20 +1,13 @@
 import os
-import logging
 from flask import Flask, request
-from twilio.rest import Client
+from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
 import database
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 app = Flask(__name__)
 database.init_db()
-
-_twilio = Client(os.environ['TWILIO_ACCOUNT_SID'], os.environ['TWILIO_AUTH_TOKEN'])
-TWILIO_NUMBER = os.environ['TWILIO_PHONE_NUMBER']
 
 REGISTRATION = {
     'הנקה': ('🤱', 'הנקה נרשמה'),
@@ -73,16 +66,9 @@ def handle_command(text: str) -> str:
 @app.route('/webhook', methods=['POST'])
 def webhook():
     incoming_msg = request.form.get('Body', '').strip()
-    sender = request.form.get('From', '')
-    logger.info('Incoming message from %s: %r', sender, incoming_msg)
-
-    reply = handle_command(incoming_msg)
-    logger.info('Reply: %r', reply)
-
-    _twilio.messages.create(body=reply, from_=TWILIO_NUMBER, to=sender)
-    logger.info('Message sent to %s', sender)
-
-    return '', 200
+    response = MessagingResponse()
+    response.message(handle_command(incoming_msg))
+    return str(response)
 
 
 if __name__ == '__main__':
