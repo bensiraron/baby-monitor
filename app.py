@@ -8,6 +8,7 @@ load_dotenv()
 
 app = Flask(__name__)
 database.init_db()
+# v2
 
 REGISTRATION = {
     'הנקה': ('🤱', 'הנקה נרשמה'),
